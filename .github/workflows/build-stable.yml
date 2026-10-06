@@ -1,0 +1,63 @@
+name: Build Stable APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Pull LFS files in submodules
+        run: git submodule foreach --recursive 'git lfs pull || true'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK/NDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;28.2.13676358" \
+            "cmake;3.22.1"
+
+      - name: Python deps for locale generation
+        run: pip install requests
+
+      - name: Signing config
+        env:
+          KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
+          LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
+        run: |
+          echo "$KEYSTORE_FILE" | base64 --decode > key.jks
+          printf '%s\n' "$LOCAL_PROPERTIES" > keystore.properties
+          echo "storeFile=key.jks" >> keystore.properties
+
+      - name: Build
+        run: |
+          export VERSION_CODE=$(( $(date +%s) / 60 ))
+          export VERSION_NAME="$(git describe --tags --always)-custom"
+          export BRANCH_NAME="${GITHUB_REF_NAME}"
+          chmod +x gradlew
+          ./gradlew assembleStableRelease -s
+
+      - name: Cleanup secrets
+        if: always()
+        run: rm -f key.jks keystore.properties
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: futo-keyboard-stable
+          path: build/outputs/apk/stable/release/*.apk
+          if-no-files-found: error

@@ -78,7 +78,8 @@ public final class SpellCheckerSettingsFragment extends SubScreenFragment
     }
 
     private void turnOffLookupContactsIfNoPermission() {
-        if (!PermissionsUtil.checkAllPermissionsGranted(getContext(), Manifest.permission.READ_CONTACTS)) {
+        if (mLookupContactsPreference != null
+                && !PermissionsUtil.checkAllPermissionsGranted(getContext(), Manifest.permission.READ_CONTACTS)) {
             mLookupContactsPreference.setChecked(false);
         }
     }

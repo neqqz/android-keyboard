@@ -19,8 +19,8 @@
 >
     <CheckBoxPreference
         android:key="pref_spellcheck_use_contacts"
-        android:title="@string/use_contacts_for_spellchecking_option_title"
-        android:summary="@string/use_contacts_for_spellchecking_option_summary"
+        android:title="Look up contact names"
+        android:summary="Use names from Contacts for spell checking suggestions"
         android:defaultValue="true"
         android:persistent="true" />
 </PreferenceScreen>

@@ -38,6 +38,11 @@ public final class SpellCheckerSettingsActivity extends PreferenceActivity
     }
 
     @Override
+    protected boolean isValidFragment(final String fragmentName) {
+        return DEFAULT_FRAGMENT.equals(fragmentName);
+    }
+
+    @Override
     public Intent getIntent() {
         final Intent modIntent = new Intent(super.getIntent());
         modIntent.putExtra(EXTRA_SHOW_FRAGMENT, DEFAULT_FRAGMENT);

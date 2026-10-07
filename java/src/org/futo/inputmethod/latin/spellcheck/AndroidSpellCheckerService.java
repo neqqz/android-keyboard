@@ -219,12 +219,7 @@ public final class AndroidSpellCheckerService extends SpellCheckerService
     }
 
     private Keyboard createKeyboardForLocale(final Locale locale) {
-        final String keyboardLayoutName = getKeyboardLayoutNameForLocale(locale);
-        final InputMethodSubtype subtype = AdditionalSubtypeUtils.createDummyAdditionalSubtype(
-                locale.toString(), keyboardLayoutName);
-        throw new UnsupportedOperationException("TODO: Implement");
-        //final KeyboardLayoutSet keyboardLayoutSet = createKeyboardSetForSpellChecker(subtype);
-        //return keyboardLayoutSet.getKeyboard(KeyboardId.ELEMENT_ALPHABET);
+        return SpellCheckerKeyboardFactory.create(this, locale);
     }
 
     /*private KeyboardLayoutSet createKeyboardSetForSpellChecker(final InputMethodSubtype subtype) {

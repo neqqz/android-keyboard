@@ -16,8 +16,11 @@
 
 package org.futo.inputmethod.latin;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import android.content.Context;
@@ -32,18 +35,20 @@ public class DictionaryFacilitatorLruCache {
     private static final int WAIT_FOR_LOADING_MAIN_DICT_IN_MILLISECONDS = 1000;
     private static final int MAX_RETRY_COUNT_FOR_WAITING_FOR_LOADING_DICT = 5;
 
+    private static final int MAX_CACHED_FACILITATORS = 4;
+
     private final Context mContext;
     private final String mDictionaryNamePrefix;
     private final Object mLock = new Object();
-    private final DictionaryFacilitator mDictionaryFacilitator;
+    // One facilitator per locale list, so that checking words of several languages doesn't keep
+    // reloading dictionaries, and a facilitator never changes locale while another thread uses it.
+    private final LinkedHashMap<List<Locale>, DictionaryFacilitator> mFacilitators =
+            new LinkedHashMap<>(8, 0.75f, true /* access order */);
     private boolean mUseContactsDictionary;
-    private List<Locale> mLocales;
 
     public DictionaryFacilitatorLruCache(final Context context, final String dictionaryNamePrefix) {
         mContext = context;
         mDictionaryNamePrefix = dictionaryNamePrefix;
-        mDictionaryFacilitator = DictionaryFacilitatorProvider.getDictionaryFacilitator(
-                true /* isNeededForSpellChecking */);
     }
 
     private static void waitForLoadingMainDictionary(
@@ -65,15 +70,13 @@ public class DictionaryFacilitatorLruCache {
         }
     }
 
-    private void resetDictionariesForLocaleLocked() {
-        // Nothing to do if the locale is null.  This would be the case before any get() calls.
-        if (mLocales != null && !mLocales.isEmpty()) {
-          // Note: Given that personalized dictionaries are not used here; we can pass null account.
-          mDictionaryFacilitator.resetDictionaries(mContext, mLocales,
-              mUseContactsDictionary, false /* usePersonalizedDicts */,
-              false /* forceReloadMainDictionary */, null /* account */,
-              mDictionaryNamePrefix, null /* listener */);
-        }
+    private void resetDictionariesLocked(final DictionaryFacilitator facilitator,
+            final List<Locale> locales) {
+        // Note: Given that personalized dictionaries are not used here; we can pass null account.
+        facilitator.resetDictionaries(mContext, locales,
+                mUseContactsDictionary, false /* usePersonalizedDicts */,
+                false /* forceReloadMainDictionary */, null /* account */,
+                mDictionaryNamePrefix, null /* listener */);
     }
 
     public void setUseContactsDictionary(final boolean useContactsDictionary) {
@@ -83,25 +86,39 @@ public class DictionaryFacilitatorLruCache {
                 return;
             }
             mUseContactsDictionary = useContactsDictionary;
-            resetDictionariesForLocaleLocked();
-            waitForLoadingMainDictionary(mDictionaryFacilitator);
+            for (final Map.Entry<List<Locale>, DictionaryFacilitator> entry
+                    : mFacilitators.entrySet()) {
+                resetDictionariesLocked(entry.getValue(), entry.getKey());
+                waitForLoadingMainDictionary(entry.getValue());
+            }
         }
     }
 
     public DictionaryFacilitator get(final List<Locale> locales) {
         synchronized (mLock) {
-            if (!mDictionaryFacilitator.isForLocales(locales)) {
-                mLocales = locales;
-                resetDictionariesForLocaleLocked();
+            DictionaryFacilitator facilitator = mFacilitators.get(locales);
+            if (facilitator == null) {
+                facilitator = DictionaryFacilitatorProvider.getDictionaryFacilitator(
+                        true /* isNeededForSpellChecking */);
+                final List<Locale> key = new ArrayList<>(locales);
+                resetDictionariesLocked(facilitator, key);
+                mFacilitators.put(key, facilitator);
+                if (mFacilitators.size() > MAX_CACHED_FACILITATORS) {
+                    final List<Locale> eldestKey = mFacilitators.keySet().iterator().next();
+                    mFacilitators.remove(eldestKey).closeDictionaries();
+                }
             }
-            waitForLoadingMainDictionary(mDictionaryFacilitator);
-            return mDictionaryFacilitator;
+            waitForLoadingMainDictionary(facilitator);
+            return facilitator;
         }
     }
 
     public void closeDictionaries() {
         synchronized (mLock) {
-            mDictionaryFacilitator.closeDictionaries();
+            for (final DictionaryFacilitator facilitator : mFacilitators.values()) {
+                facilitator.closeDictionaries();
+            }
+            mFacilitators.clear();
         }
     }
 }

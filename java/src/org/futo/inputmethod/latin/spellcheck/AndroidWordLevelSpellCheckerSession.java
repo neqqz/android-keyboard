@@ -51,9 +51,9 @@ public abstract class AndroidWordLevelSpellCheckerSession extends Session {
     public final static String[] EMPTY_STRING_ARRAY = new String[0];
 
     // Immutable, but not available in the constructor.
-    private Locale mLocale;
+    private volatile Locale mLocale;
     // Cache this for performance
-    private int mScript; // One of SCRIPT_LATIN or SCRIPT_CYRILLIC for now.
+    private volatile int mScript; // One of SCRIPT_LATIN or SCRIPT_CYRILLIC for now.
     private final AndroidSpellCheckerService mService;
     protected final SuggestionsCache mSuggestionsCache = new SuggestionsCache();
     private final ContentObserver mObserver;
@@ -111,12 +111,28 @@ public abstract class AndroidWordLevelSpellCheckerSession extends Session {
         cres.registerContentObserver(Words.CONTENT_URI, true, mObserver);
     }
 
+    /**
+     * The platform's locale is the system language, so prefer the language of the layout that is
+     * active in FUTO right now (same approach as HeliBoard).
+     */
+    @Override
+    public String getLocale() {
+        final Locale active = SpellCheckerLocales.activeLocale(mService);
+        return (active != null) ? active.toString() : super.getLocale();
+    }
+
+    private void updateLocale() {
+        final String localeString = getLocale();
+        final Locale locale = (null == localeString) ? null
+                : LocaleUtils.constructLocaleFromString(localeString);
+        if (locale == null || locale.equals(mLocale)) return;
+        mLocale = locale;
+        mScript = ScriptUtils.getScriptFromSpellCheckerLocale(locale);
+    }
+
     @Override
     public void onCreate() {
-        final String localeString = getLocale();
-        mLocale = (null == localeString) ? null
-                : LocaleUtils.constructLocaleFromString(localeString);
-        mScript = ScriptUtils.getScriptFromSpellCheckerLocale(mLocale);
+        updateLocale();
     }
 
     @Override
@@ -223,6 +239,8 @@ public abstract class AndroidWordLevelSpellCheckerSession extends Session {
     protected SuggestionsInfo onGetSuggestionsInternal(
             final TextInfo textInfo, final NgramContext ngramContext, final int suggestionsLimit) {
         try {
+            // The active layout may have changed since the session was created.
+            updateLocale();
             final String text = textInfo.getText().
                     replaceAll(AndroidSpellCheckerService.APOSTROPHE,
                             AndroidSpellCheckerService.SINGLE_QUOTE).

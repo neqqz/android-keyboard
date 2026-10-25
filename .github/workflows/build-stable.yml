@@ -37,12 +37,19 @@ jobs:
 
       - name: Signing config
         env:
-          KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
         run: |
-          echo "$KEYSTORE_FILE" | base64 --decode > key.jks
-          printf '%s\n' "$LOCAL_PROPERTIES" > keystore.properties
-          echo "storeFile=key.jks" >> keystore.properties
+          printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > key.jks
+          printf '%s\n' "$LOCAL_PROPERTIES" | tr -d '\r' > signing.properties
+          p() { grep -m1 "^$1=" signing.properties | cut -d= -f2-; }
+          {
+            echo "storeFile=key.jks"
+            echo "storePassword=$(p KEYSTORE_PASS)"
+            echo "keyAlias=$(p ALIAS_NAME)"
+            echo "keyPassword=$(p ALIAS_PASS)"
+          } > keystore.properties
+          rm -f signing.properties
 
       - name: Build
         run: |
@@ -54,7 +61,7 @@ jobs:
 
       - name: Cleanup secrets
         if: always()
-        run: rm -f key.jks keystore.properties
+        run: rm -f key.jks keystore.properties signing.properties
 
       - uses: actions/upload-artifact@v4
         with:

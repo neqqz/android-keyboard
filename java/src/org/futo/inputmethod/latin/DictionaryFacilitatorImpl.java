@@ -80,6 +80,15 @@ public class DictionaryFacilitatorImpl implements DictionaryFacilitator {
     private volatile CountDownLatch mLatchForWaitingLoadingMainDictionaries = new CountDownLatch(0);
     // To synchronize assigning mDictionaryGroup to ensure closing dictionaries.
     private final Object mLock = new Object();
+    private final boolean mIsNeededForSpellChecking;
+
+    public DictionaryFacilitatorImpl() {
+        this(false /* isNeededForSpellChecking */);
+    }
+
+    public DictionaryFacilitatorImpl(final boolean isNeededForSpellChecking) {
+        mIsNeededForSpellChecking = isNeededForSpellChecking;
+    }
 
     public static final Map<String, Class<? extends ExpandableBinaryDictionary>>
             DICT_TYPE_TO_CLASS = new HashMap<>();
@@ -103,7 +112,9 @@ public class DictionaryFacilitatorImpl implements DictionaryFacilitator {
     private static boolean sTriesAreInvalid = false;
     public static void onAnyBinaryDictionaryClosed() {
         sTriesAreInvalid = true;
-        swipeDecoderDictionary.invalidateTries();
+        if (swipeDecoderDictionary != null) {
+            swipeDecoderDictionary.invalidateTries();
+        }
     }
 
     @Override
@@ -368,7 +379,7 @@ public class DictionaryFacilitatorImpl implements DictionaryFacilitator {
             @Nullable final DictionaryInitializationListener listener) {
 
         mPrevKeyboard = null;
-        if(DictionaryFacilitatorImpl.swipeDecoderDictionary == null) {
+        if(!mIsNeededForSpellChecking && DictionaryFacilitatorImpl.swipeDecoderDictionary == null) {
             DictionaryFacilitatorImpl.swipeDecoderDictionary = new SwipeDecoderDictionary(context, Locale.ENGLISH);
         }
 
@@ -492,7 +503,10 @@ public class DictionaryFacilitatorImpl implements DictionaryFacilitator {
             final Locale locale, final DictionaryInitializationListener listener) {
         final CountDownLatch latchForWaitingLoadingMainDictionary = new CountDownLatch(1);
         mLatchForWaitingLoadingMainDictionaries = latchForWaitingLoadingMainDictionary;
-        ExecutorUtils.getBackgroundExecutor(ExecutorUtils.KEYBOARD).execute(new Runnable() {
+        final int executorType = mIsNeededForSpellChecking
+                ? ExecutorUtils.SPELLING
+                : ExecutorUtils.KEYBOARD;
+        ExecutorUtils.getBackgroundExecutor(executorType).execute(new Runnable() {
             @Override
             public void run() {
                 doReloadUninitializedMainDictionaries(
@@ -504,27 +518,30 @@ public class DictionaryFacilitatorImpl implements DictionaryFacilitator {
     void doReloadUninitializedMainDictionaries(final Context context, final Locale locale,
             final DictionaryInitializationListener listener,
             final CountDownLatch latchForWaitingLoadingMainDictionary) {
-        final DictionaryGroup dictionaryGroup =
-                findDictionaryGroupWithLocale(mDictionaryGroups, locale);
-        if (null == dictionaryGroup) {
-            // This should never happen, but better safe than crashy
-            Log.w(TAG, "Expected a dictionary group for " + locale + " but none found");
-            return;
-        }
-        final Dictionary mainDict =
-                DictionaryFactory.createMainDictionaryFromManager(context, locale);
-        synchronized (mLock) {
-            if (locale.equals(dictionaryGroup.mLocale)) {
-                dictionaryGroup.setMainDict(mainDict);
-            } else {
-                // Dictionary facilitator has been reset for another locale.
-                mainDict.close();
+        try {
+            final DictionaryGroup dictionaryGroup =
+                    findDictionaryGroupWithLocale(mDictionaryGroups, locale);
+            if (null == dictionaryGroup) {
+                // This should never happen, but better safe than crashy
+                Log.w(TAG, "Expected a dictionary group for " + locale + " but none found");
+                return;
             }
+            final Dictionary mainDict =
+                    DictionaryFactory.createMainDictionaryFromManager(context, locale);
+            synchronized (mLock) {
+                if (locale.equals(dictionaryGroup.mLocale)) {
+                    dictionaryGroup.setMainDict(mainDict);
+                } else {
+                    // Dictionary facilitator has been reset for another locale.
+                    mainDict.close();
+                }
+            }
+            if (listener != null) {
+                listener.onUpdateMainDictionaryAvailability(hasAtLeastOneInitializedMainDictionary());
+            }
+        } finally {
+            latchForWaitingLoadingMainDictionary.countDown();
         }
-        if (listener != null) {
-            listener.onUpdateMainDictionaryAvailability(hasAtLeastOneInitializedMainDictionary());
-        }
-        latchForWaitingLoadingMainDictionary.countDown();
     }
 
     @UsedForTesting
@@ -877,7 +894,7 @@ public class DictionaryFacilitatorImpl implements DictionaryFacilitator {
             }
         }
 
-        if(DictionaryFacilitatorImpl.swipeDecoderDictionary != null) {
+        if(!mIsNeededForSpellChecking && DictionaryFacilitatorImpl.swipeDecoderDictionary != null) {
             SwipeDecoderDictionary.updateKeyboard(keyboard);
             updateSwipeLayoutAndDictsIfNeeded(Settings.getInstance().getCurrent(), keyboard);
 
@@ -1100,7 +1117,7 @@ public class DictionaryFacilitatorImpl implements DictionaryFacilitator {
 
     @Override
     public void updateSwipeLayoutAndDictsIfNeeded(SettingsValues values, Keyboard keyboard) {
-        if(swipeDecoderDictionary == null) return;
+        if(mIsNeededForSpellChecking || swipeDecoderDictionary == null) return;
 
         // TODO: This could be more optimized by avoiding unnecessary recreations when
         //  isMultiLine is changed, or something else trivial has changed. Maybe also cache the

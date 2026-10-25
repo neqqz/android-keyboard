@@ -80,6 +80,7 @@ public class DictionaryFacilitatorLruCache {
     }
 
     public void setUseContactsDictionary(final boolean useContactsDictionary) {
+        final List<DictionaryFacilitator> facilitatorsToWait;
         synchronized (mLock) {
             if (mUseContactsDictionary == useContactsDictionary) {
                 // The value has not been changed.
@@ -89,28 +90,33 @@ public class DictionaryFacilitatorLruCache {
             for (final Map.Entry<List<Locale>, DictionaryFacilitator> entry
                     : mFacilitators.entrySet()) {
                 resetDictionariesLocked(entry.getValue(), entry.getKey());
-                waitForLoadingMainDictionary(entry.getValue());
             }
+            facilitatorsToWait = new ArrayList<>(mFacilitators.values());
+        }
+        for (final DictionaryFacilitator facilitator : facilitatorsToWait) {
+            waitForLoadingMainDictionary(facilitator);
         }
     }
 
     public DictionaryFacilitator get(final List<Locale> locales) {
+        final DictionaryFacilitator facilitator;
         synchronized (mLock) {
-            DictionaryFacilitator facilitator = mFacilitators.get(locales);
-            if (facilitator == null) {
-                facilitator = DictionaryFacilitatorProvider.getDictionaryFacilitator(
+            DictionaryFacilitator f = mFacilitators.get(locales);
+            if (f == null) {
+                f = DictionaryFacilitatorProvider.getDictionaryFacilitator(
                         true /* isNeededForSpellChecking */);
                 final List<Locale> key = new ArrayList<>(locales);
-                resetDictionariesLocked(facilitator, key);
-                mFacilitators.put(key, facilitator);
+                resetDictionariesLocked(f, key);
+                mFacilitators.put(key, f);
                 if (mFacilitators.size() > MAX_CACHED_FACILITATORS) {
                     final List<Locale> eldestKey = mFacilitators.keySet().iterator().next();
                     mFacilitators.remove(eldestKey).closeDictionaries();
                 }
             }
-            waitForLoadingMainDictionary(facilitator);
-            return facilitator;
+            facilitator = f;
         }
+        waitForLoadingMainDictionary(facilitator);
+        return facilitator;
     }
 
     public void closeDictionaries() {

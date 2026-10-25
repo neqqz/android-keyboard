@@ -30,10 +30,13 @@ import org.futo.inputmethod.latin.R;
 import org.futo.inputmethod.latin.SuggestedWords;
 import org.futo.inputmethod.latin.common.ComposedData;
 import org.futo.inputmethod.latin.settings.SettingsValuesForSuggestion;
+import org.futo.inputmethod.latin.uix.DataStoreHelper;
 import org.futo.inputmethod.latin.uix.PreferenceUtils;
 import org.futo.inputmethod.latin.utils.AdditionalSubtypeUtils;
+import org.futo.inputmethod.latin.utils.JniUtils;
 import org.futo.inputmethod.latin.utils.ScriptUtils;
 import org.futo.inputmethod.latin.utils.SuggestionResults;
+import org.futo.inputmethod.v2keyboard.LayoutManager;
 
 import java.util.Collections;
 import java.util.Locale;
@@ -89,6 +92,9 @@ public final class AndroidSpellCheckerService extends SpellCheckerService
     @Override
     public void onCreate() {
         super.onCreate();
+        JniUtils.loadNativeLibrary();
+        DataStoreHelper.init(this);
+        LayoutManager.INSTANCE.init(this);
         mRecommendedThreshold = Float.parseFloat(
                 getString(R.string.spellchecker_recommended_threshold_value));
         final SharedPreferences prefs = PreferenceUtils.INSTANCE.getDefaultSharedPreferences(this);

@@ -21,6 +21,6 @@ package org.futo.inputmethod.latin;
  */
 public class DictionaryFacilitatorProvider {
     public static DictionaryFacilitator getDictionaryFacilitator(boolean isNeededForSpellChecking) {
-        return new DictionaryFacilitatorImpl();
+        return new DictionaryFacilitatorImpl(isNeededForSpellChecking);
     }
 }

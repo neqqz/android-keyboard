@@ -270,9 +270,6 @@ public class DictionaryFacilitatorImpl implements DictionaryFacilitator {
         }
     }
 
-    public DictionaryFacilitatorImpl() {
-    }
-
     @Override
     public void onStartInput() {
     }
@@ -503,7 +500,7 @@ public class DictionaryFacilitatorImpl implements DictionaryFacilitator {
             final Locale locale, final DictionaryInitializationListener listener) {
         final CountDownLatch latchForWaitingLoadingMainDictionary = new CountDownLatch(1);
         mLatchForWaitingLoadingMainDictionaries = latchForWaitingLoadingMainDictionary;
-        final int executorType = mIsNeededForSpellChecking
+        final String executorType = mIsNeededForSpellChecking
                 ? ExecutorUtils.SPELLING
                 : ExecutorUtils.KEYBOARD;
         ExecutorUtils.getBackgroundExecutor(executorType).execute(new Runnable() {

@@ -19,6 +19,7 @@ package org.futo.inputmethod.latin.spellcheck;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.service.textservice.SpellCheckerService;
+import android.text.TextUtils;
 import android.view.inputmethod.InputMethodSubtype;
 import android.view.textservice.SuggestionsInfo;
 
@@ -178,7 +179,7 @@ public final class AndroidSpellCheckerService extends SpellCheckerService
             final ComposedData composedData, final NgramContext ngramContext,
             @Nonnull final Keyboard keyboard) {
         if (locale == null) {
-            return SuggestionResults.empty();
+            return new SuggestionResults(0, false, false);
         }
         Integer sessionId = null;
         mSemaphore.acquireUninterruptibly();

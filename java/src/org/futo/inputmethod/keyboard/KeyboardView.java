@@ -193,9 +193,10 @@ public class KeyboardView extends View {
     }
 
     public void setHardwareAcceleratedDrawingEnabled(final boolean enabled) {
-        if (!enabled) return;
-        // TODO: Should use LAYER_TYPE_SOFTWARE when hardware acceleration is off?
-        setLayerType(LAYER_TYPE_HARDWARE, null);
+        // Views in hardware-accelerated windows are already hardware-accelerated by default.
+        // Forcing LAYER_TYPE_HARDWARE creates an offscreen FBO texture that degrades
+        // performance and causes GPU pipeline stalls when rapidly redrawn or resized.
+        setLayerType(LAYER_TYPE_NONE, null);
     }
 
     /**

@@ -223,8 +223,6 @@ class LatinIME : InputMethodServiceCompose(), LatinIMELegacy.SuggestionStripCont
 
     private var settingsRefreshRequired = false
     private fun recreateKeyboard() {
-        latinIMELegacy.updateTheme()
-
         if(settingsRefreshRequired) {
             latinIMELegacy.mKeyboardSwitcher.loadKeyboard(
                 currentInputEditorInfo ?: return,
@@ -304,6 +302,7 @@ class LatinIME : InputMethodServiceCompose(), LatinIMELegacy.SuggestionStripCont
 
             if(currColors.differsFrom(nextColors)) {
                 updateDrawableProvider(nextColors)
+                latinIMELegacy.updateTheme()
                 recreateKeyboard()
                 return
             }
@@ -312,11 +311,13 @@ class LatinIME : InputMethodServiceCompose(), LatinIMELegacy.SuggestionStripCont
         // TODO: Verify this actually fixes anything
         if(drawableProvider?.displayDpi != resources.displayMetrics.densityDpi) {
             updateDrawableProvider(colorScheme)
+            latinIMELegacy.updateTheme()
             recreateKeyboard()
             return
         }
     }
 
+    private val recheckInsetsRunnable = Runnable { onSizeMaybeUpdated() }
     private fun onSizeMaybeUpdated() {
         if(sizingCalculator.didMaybeChange(size.value)) {
             onSizeUpdated()
@@ -419,6 +420,7 @@ class LatinIME : InputMethodServiceCompose(), LatinIMELegacy.SuggestionStripCont
                 activeColorScheme.value = themeOption.obtainColors(this@LatinIME)
 
                 updateDrawableProvider(activeColorScheme.value)
+                latinIMELegacy.updateTheme()
                 invalidateKeyboard()
             }
         }
@@ -433,6 +435,7 @@ class LatinIME : InputMethodServiceCompose(), LatinIMELegacy.SuggestionStripCont
                         if(provider is BasicThemeProvider) {
                             activeThemeOption?.obtainColors?.let { f ->
                                 updateDrawableProvider(f(this@LatinIME))
+                                latinIMELegacy.updateTheme()
                                 invalidateKeyboard()
                             }
                         }
@@ -511,6 +514,7 @@ class LatinIME : InputMethodServiceCompose(), LatinIMELegacy.SuggestionStripCont
     private var destroying = false
     override fun onDestroy() {
         destroying = true
+        window.window?.decorView?.removeCallbacks(recheckInsetsRunnable)
         unregisterReceiver(unlockReceiver)
         stopJobs()
         viewModelStore.clear()
@@ -544,11 +548,13 @@ class LatinIME : InputMethodServiceCompose(), LatinIMELegacy.SuggestionStripCont
         uixManager.setContent()
 
         // Due to annoying Android animation nonsense, we may never receive a notification of the
-        // correct insets, a 250ms delay to recheck is the best solution I could come up with
-        window.window?.decorView?.setOnApplyWindowInsetsListener { v, insets ->
-            window.window!!.decorView.post { onSizeUpdated() }
-            window.window!!.decorView.postDelayed({ onSizeMaybeUpdated() }, 250L)
-            v.onApplyWindowInsets(insets)
+        // correct insets immediately; debounce to recheck once insets settle
+        window.window?.decorView?.let { decorView ->
+            decorView.setOnApplyWindowInsetsListener { v, insets ->
+                decorView.removeCallbacks(recheckInsetsRunnable)
+                decorView.postDelayed(recheckInsetsRunnable, 150L)
+                v.onApplyWindowInsets(insets)
+            }
         }
 
         return composeView

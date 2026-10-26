@@ -39,10 +39,10 @@ public final class DrawingPreviewPlacerView extends RelativeLayout {
     }
 
     public void setHardwareAcceleratedDrawingEnabled(final boolean enabled) {
-        if (!enabled) return;
-        final Paint layerPaint = new Paint();
-        layerPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_OVER));
-        setLayerType(LAYER_TYPE_HARDWARE, layerPaint);
+        // Views in hardware-accelerated windows are already hardware-accelerated by default.
+        // Forcing LAYER_TYPE_HARDWARE creates an offscreen FBO texture that degrades
+        // performance and causes GPU pipeline stalls when rapidly redrawn or resized.
+        setLayerType(LAYER_TYPE_NONE, null);
     }
 
     public void addPreview(final AbstractDrawingPreview preview) {

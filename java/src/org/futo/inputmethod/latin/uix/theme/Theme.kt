@@ -25,10 +25,12 @@ import org.futo.inputmethod.latin.uix.settings.useDataStoreValue
 import kotlin.math.sqrt
 
 fun applyWindowColors(window: Window, @ColorInt color: Int, statusBar: Boolean) {
-    if(statusBar) {
+    if(statusBar && window.statusBarColor != color) {
         window.statusBarColor = color
     }
-    window.navigationBarColor = color
+    if(window.navigationBarColor != color) {
+        window.navigationBarColor = color
+    }
 
     if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         val view = window.decorView
@@ -40,10 +42,13 @@ fun applyWindowColors(window: Window, @ColorInt color: Int, statusBar: Boolean) 
                     + 0.114 * android.graphics.Color.blue(color) / 255.0
         )
 
-        if (luminance > 0.5 && color != android.graphics.Color.TRANSPARENT) {
-            view.systemUiVisibility = uiFlags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        val targetFlags = if (luminance > 0.5 && color != android.graphics.Color.TRANSPARENT) {
+            uiFlags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         } else {
-            view.systemUiVisibility = uiFlags and (View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv())
+            uiFlags and (View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv())
+        }
+        if (uiFlags != targetFlags) {
+            view.systemUiVisibility = targetFlags
         }
     }
 }

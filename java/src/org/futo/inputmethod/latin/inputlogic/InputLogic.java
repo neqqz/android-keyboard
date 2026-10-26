@@ -2060,6 +2060,7 @@ public final class InputLogic {
             //mSuggestionStripViewAccessor.setNeutralSuggestionStrip();
             return false;
         }
+        final int expectedCursorPosition = mConnection.getExpectedSelectionStart();
         if (!mConnection.isCursorTouchingWord(settingsValues.mSpacingAndPunctuations,
                 InputLogic.COMPOSITION_TEXT_AFTER /* checkTextAfter */)) {
             resetEntireInputState(

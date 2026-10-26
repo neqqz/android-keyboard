@@ -80,7 +80,6 @@ public class DictionaryFacilitatorLruCache {
     }
 
     public void setUseContactsDictionary(final boolean useContactsDictionary) {
-        final List<DictionaryFacilitator> facilitatorsToWait;
         synchronized (mLock) {
             if (mUseContactsDictionary == useContactsDictionary) {
                 // The value has not been changed.
@@ -91,10 +90,6 @@ public class DictionaryFacilitatorLruCache {
                     : mFacilitators.entrySet()) {
                 resetDictionariesLocked(entry.getValue(), entry.getKey());
             }
-            facilitatorsToWait = new ArrayList<>(mFacilitators.values());
-        }
-        for (final DictionaryFacilitator facilitator : facilitatorsToWait) {
-            waitForLoadingMainDictionary(facilitator);
         }
     }
 
@@ -115,7 +110,6 @@ public class DictionaryFacilitatorLruCache {
             }
             facilitator = f;
         }
-        waitForLoadingMainDictionary(facilitator);
         return facilitator;
     }
 

@@ -247,7 +247,7 @@ public abstract class AndroidWordLevelSpellCheckerSession extends Session {
                     replaceAll("^" + quotesRegexp, "").
                     replaceAll(quotesRegexp + "$", "");
 
-            if (!mService.hasMainDictionaryForLocale(mLocale)) {
+            if (mLocale == null || !mService.hasMainDictionaryForLocale(mLocale)) {
                 return AndroidSpellCheckerService.getNotInDictEmptySuggestions(
                         false /* reportAsTypo */);
             }

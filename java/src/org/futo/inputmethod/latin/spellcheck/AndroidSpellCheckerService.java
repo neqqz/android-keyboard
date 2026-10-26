@@ -43,6 +43,7 @@ import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nonnull;
 
@@ -160,6 +161,9 @@ public final class AndroidSpellCheckerService extends SpellCheckerService
     }
 
     public boolean isValidWord(final Locale locale, final String word) {
+        if (locale == null || TextUtils.isEmpty(word)) {
+            return false;
+        }
         mSemaphore.acquireUninterruptibly();
         try {
             DictionaryFacilitator dictionaryFacilitatorForLocale =
@@ -173,6 +177,9 @@ public final class AndroidSpellCheckerService extends SpellCheckerService
     public SuggestionResults getSuggestionResults(final Locale locale,
             final ComposedData composedData, final NgramContext ngramContext,
             @Nonnull final Keyboard keyboard) {
+        if (locale == null) {
+            return SuggestionResults.empty();
+        }
         Integer sessionId = null;
         mSemaphore.acquireUninterruptibly();
         try {
@@ -191,6 +198,9 @@ public final class AndroidSpellCheckerService extends SpellCheckerService
     }
 
     public boolean hasMainDictionaryForLocale(final Locale locale) {
+        if (locale == null) {
+            return false;
+        }
         mSemaphore.acquireUninterruptibly();
         try {
             final DictionaryFacilitator dictionaryFacilitator =
@@ -203,17 +213,27 @@ public final class AndroidSpellCheckerService extends SpellCheckerService
 
     @Override
     public boolean onUnbind(final Intent intent) {
-        mSemaphore.acquireUninterruptibly(MAX_NUM_OF_THREADS_READ_DICTIONARY);
+        boolean acquired = false;
+        try {
+            acquired = mSemaphore.tryAcquire(
+                    MAX_NUM_OF_THREADS_READ_DICTIONARY, 200, TimeUnit.MILLISECONDS);
+        } catch (final InterruptedException ignored) {
+        }
         try {
             mDictionaryFacilitatorCache.closeDictionaries();
         } finally {
-            mSemaphore.release(MAX_NUM_OF_THREADS_READ_DICTIONARY);
+            if (acquired) {
+                mSemaphore.release(MAX_NUM_OF_THREADS_READ_DICTIONARY);
+            }
         }
         mKeyboardCache.clear();
         return false;
     }
 
     public Keyboard getKeyboardForLocale(final Locale locale) {
+        if (locale == null) {
+            return null;
+        }
         Keyboard keyboard = mKeyboardCache.get(locale);
         if (keyboard == null) {
             keyboard = createKeyboardForLocale(locale);

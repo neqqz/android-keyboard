@@ -170,10 +170,12 @@ public final class KeyboardSwitcher implements SwitchActions {
         );
 
         try {
-            mKeyboardLayoutSet = new KeyboardLayoutSetV2(
-                    mThemeContext,
-                    params
-            );
+            if (mKeyboardLayoutSet == null || !mKeyboardLayoutSet.getParams().hasSameLayout(params)) {
+                mKeyboardLayoutSet = new KeyboardLayoutSetV2(
+                        mThemeContext,
+                        params
+                );
+            }
 
             mStateHint = getStateHint(settingsValues);
             mState.onLoadKeyboard(

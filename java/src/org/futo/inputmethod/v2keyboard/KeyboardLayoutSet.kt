@@ -90,11 +90,35 @@ data class KeyboardLayoutSetV2Params(
     val gap: Float = 4.0f,
     val bottomActionKey: Int?,
     val longPressKeySettings: LongPressKeySettings? = null
-)
+) {
+    fun hasSameLayout(other: KeyboardLayoutSetV2Params?): Boolean {
+        if (other == null) return false
+        if (!computedSize.dimensionsSameAs(other.computedSize)) return false
+        if (keyboardLayoutSet != other.keyboardLayoutSet) return false
+        if (locale != other.locale) return false
+        if (multilingualTypingLocales != other.multilingualTypingLocales) return false
+        if (numberRow != other.numberRow) return false
+        if (numberRowMode != other.numberRowMode) return false
+        if (useLocalNumbers != other.useLocalNumbers) return false
+        if (arrowRow != other.arrowRow) return false
+        if (alternativePeriodKey != other.alternativePeriodKey) return false
+        if (gap != other.gap) return false
+        if (bottomActionKey != other.bottomActionKey) return false
+        if (longPressKeySettings != other.longPressKeySettings) return false
+
+        val ei1 = editorInfo ?: EditorInfo()
+        val ei2 = other.editorInfo ?: EditorInfo()
+        if (getKeyboardMode(ei1) != getKeyboardMode(ei2)) return false
+        if (ei1.privateImeOptions != ei2.privateImeOptions) return false
+        if ((ei1.actionLabel?.toString() ?: "") != (ei2.actionLabel?.toString() ?: "")) return false
+
+        return true
+    }
+}
 
 class KeyboardLayoutSetV2 internal constructor(
     private val context: Context,
-    private val params: KeyboardLayoutSetV2Params
+    val params: KeyboardLayoutSetV2Params
 ) {
     val script = Script.Latin
 

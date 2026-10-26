@@ -323,7 +323,7 @@ class LatinIME : InputMethodServiceCompose(), LatinIMELegacy.SuggestionStripCont
         }
     }
 
-    fun onSizeUpdated() {
+    fun onSizeUpdated(invalidate: Boolean = true) {
         val newSize = calculateSize() ?: return
         val shouldInvalidateKeyboard = size.value?.let { oldSize ->
             when {
@@ -336,7 +336,7 @@ class LatinIME : InputMethodServiceCompose(), LatinIMELegacy.SuggestionStripCont
 
         size.value = newSize
 
-        if(shouldInvalidateKeyboard) {
+        if(shouldInvalidateKeyboard && invalidate) {
             invalidateKeyboard(true)
             updateNavigationBarVisibility()
         }
@@ -626,7 +626,9 @@ class LatinIME : InputMethodServiceCompose(), LatinIMELegacy.SuggestionStripCont
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
-        onSizeMaybeUpdated()
+        if(sizingCalculator.didMaybeChange(size.value)) {
+            onSizeUpdated(invalidate = restarting)
+        }
         imeManager.onStartInput()
         latinIMELegacy.onStartInputView(info, restarting)
         lifecycleScope.launch { uixManager.showUpdateNoticeIfNeeded() }

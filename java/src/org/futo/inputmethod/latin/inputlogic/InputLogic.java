@@ -2060,13 +2060,6 @@ public final class InputLogic {
             //mSuggestionStripViewAccessor.setNeutralSuggestionStrip();
             return false;
         }
-        final int expectedCursorPosition = mConnection.getExpectedSelectionStart();
-        final int actualCursorPosition = mConnection.getExtractedSelectionStart();
-        if(actualCursorPosition != -1 && actualCursorPosition != expectedCursorPosition) {
-            Log.e(TAG, "ResetComposingWord: cursors don't match! Expected: " + expectedCursorPosition + ", actual: " + actualCursorPosition);
-            mConnection.tryExtractCursorPosition();
-            return false;
-        }
         if (!mConnection.isCursorTouchingWord(settingsValues.mSpacingAndPunctuations,
                 InputLogic.COMPOSITION_TEXT_AFTER /* checkTextAfter */)) {
             resetEntireInputState(

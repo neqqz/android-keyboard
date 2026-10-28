@@ -134,6 +134,8 @@ public final class InputLogic {
     // Note: This does not have a composing span, so it must be handled separately.
     private String mWordBeingCorrectedByCursor = null;
 
+    private boolean mOrientationChanged = false;
+
     final ArrayDeque<RememberedSuggestedWords> mRememberedSuggestedWords = new ArrayDeque<>();
 
     private void clearRememberedSuggestedWords() {
@@ -269,7 +271,10 @@ public final class InputLogic {
 
         // In some cases (namely, after rotation of the device) editorInfo.initialSelStart is lying
         // so we try using some heuristics to find out about these and fix them.
-        mConnection.tryFixLyingCursorPosition();
+        if (ei == null || ei.initialSelStart < 0 || mOrientationChanged) {
+            mConnection.tryFixLyingCursorPosition();
+        }
+        mOrientationChanged = false;
         mConnection.updateICCursor(-1, mConnection.mExpectedSelStart, -1, mConnection.mExpectedSelEnd);
 
         cancelDoubleSpacePeriodCountdown();
@@ -306,6 +311,7 @@ public final class InputLogic {
      * @param settingsValues the current values of the settings.
      */
     public void onOrientationChange(final SettingsValues settingsValues) {
+        mOrientationChanged = true;
         // If !isComposingWord, #commitTyped() is a no-op, but still, it's better to avoid
         // the useless IPC of {begin,end}BatchEdit.
         if (mWordComposer.isComposingWord()) {
@@ -2066,20 +2072,7 @@ public final class InputLogic {
         final int expectedCursorPosition = mConnection.getExpectedSelectionStart();
         if (!mConnection.isCursorTouchingWord(settingsValues.mSpacingAndPunctuations,
                 InputLogic.COMPOSITION_TEXT_AFTER /* checkTextAfter */)) {
-            resetEntireInputState(
-                    mConnection.getExpectedSelectionStart(),
-                    mConnection.getExpectedSelectionEnd(),
-                    true
-            );
-
             return false;
-
-            //Log.d(TAG, "ComposingText1 [" + mConnection.getComposingTextForDebug() + "] , TypedWord [" + mWordComposer.getTypedWord() + "]");
-
-            // Show predictions.
-            //mWordComposer.setCapitalizedModeAtStartComposingTime(WordComposer.CAPS_MODE_OFF);
-            //postUpdateSuggestionStrip(SuggestedWords.INPUT_STYLE_TYPING);
-            //return;
         }
 
         final int currentKeyboardScriptId = mImeHelper.getCurrentKeyboardScriptId();
@@ -2846,7 +2839,10 @@ public final class InputLogic {
             // If remainingTries is 0, we should stop waiting for new tries, however we'll still
             // return true as we need to perform other tasks (for example, loading the keyboard).
         }
-        mConnection.tryFixLyingCursorPosition();
+        if (mOrientationChanged || !mConnection.isCursorPositionKnown()) {
+            mConnection.tryFixLyingCursorPosition();
+        }
+        mOrientationChanged = false;
         if (tryResumeSuggestions) {
             // TODO
             //handler.postResumeSuggestions(true /* shouldDelay */);

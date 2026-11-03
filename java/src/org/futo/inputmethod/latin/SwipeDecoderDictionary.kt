@@ -523,6 +523,7 @@ class SwipeDecoderDictionary(val context: Context, val locale: Locale) : Diction
 
     data class PendingLayoutInfo(val layout: LayoutInfoForModel, val tries: List<Long>)
     private var pendingLayoutInfo: PendingLayoutInfo? = null
+    @Synchronized
     private fun applyPendingLayoutInfo() {
         decoder?.let { d ->
             pendingLayoutInfo?.let { pend ->
@@ -544,9 +545,13 @@ class SwipeDecoderDictionary(val context: Context, val locale: Locale) : Diction
         }
     }
 
+    // Copying model assets and setMode take seconds; keep them off the IME main thread.
+    private val layoutExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+
+    @Synchronized
     fun updateKeyboard(pendingLayoutInfo: PendingLayoutInfo) {
         this.pendingLayoutInfo = pendingLayoutInfo
-        applyPendingLayoutInfo()
+        layoutExecutor.execute { applyPendingLayoutInfo() }
     }
 
     override fun isInDictionary(word: String?): Boolean {
